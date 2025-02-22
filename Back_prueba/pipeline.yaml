@@ -1,0 +1,33 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: backend-pipeline
+  namespace: default
+spec:
+  params:
+     name: IMAGE
+      type: string
+      description: "Nombre de la imagen a construir y publicar, crygt/backend:v4)"
+      default: "crygt/backend:v4"
+     name: MANIFEST
+      type: string
+      description: "Ruta al manifiesto de Kubernetes que despliega la API"
+      default: "k8s_manifests.yaml"
+  workspaces:
+     name: shared-workspace
+  tasks:
+     name: build-image
+      taskRef:
+        name: build-docker-image
+      params:
+         name: IMAGE
+          value: "$(params.IMAGE)"
+      workspaces:
+         name: source
+          workspace: shared-workspace
+     name: deploy
+      taskRef:
+        name: deploy-to-k8s
+      params:
+         name: MANIFEST
+          value: "$(params.MANIFEST)"

@@ -1,0 +1,15 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: deploy-to-k8s
+  namespace: default
+spec:
+  params:
+    - name: MANIFEST
+      description: "Ruta al manifiesto de Kubernetes  k8s_manifests.yaml"
+  steps:
+    - name: deploy
+      image: bitnami/kubectl:latest
+      script: |
+        #!/bin/sh
+        kubectl apply -f $(params.MANIFEST)

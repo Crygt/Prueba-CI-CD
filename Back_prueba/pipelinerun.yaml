@@ -1,0 +1,11 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: backend-pipelinerun
+  namespace: default
+spec:
+  workspaces:
+    - name: shared-workspace
+      emptyDir: {}  
+  pipelineRef:
+    name: backend-pipeline

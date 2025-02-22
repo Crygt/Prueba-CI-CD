@@ -1,0 +1,161 @@
+---
+# ConfigMap con variables de entorno para la API y PostgreSQL
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: default
+data:
+  DB_HOST: "postgres"          # Nombre del Service de PostgreSQL
+  DB_NAME: "prueba01"
+  DB_USER: "postgres"
+  DB_PORT: "5432"
+  MODE: "develope"
+---
+# Secret con la contraseña de la base de datos (la contraseña "Yarmes123" en Base64 es WWFybWVzMTIz)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+  namespace: default
+type: Opaque
+data:
+  DB_PASSWORD: "WWFybWVzMTIz"
+---
+# Deployment de la API (backend)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: crygt/backend:v4  # Asegúrate de que esta imagen incluya la lógica del endpoint /visits y dependencias
+          ports:
+            - containerPort: 3001   # Actualizado a 3001
+          envFrom:
+            - configMapRef:
+                name: api-config
+            - secretRef:
+                name: db-secret
+---
+# Deployment de PostgreSQL
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:latest
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: api-config
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: api-config
+                  key: DB_NAME
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: db-storage
+      volumes:
+        - name: db-storage
+          emptyDir: {}
+---
+# Deployment del frontend (Angular o JS)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: crygt/frontend:v4  # Asegúrate de que esta imagen contenga tu aplicación de frontend
+          ports:
+            - containerPort: 80
+---
+# Service para la API (backend)
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: default
+spec:
+  selector:
+    app: api
+  ports:
+    - protocol: TCP
+      port: 80          # Puerto para exponer la API externamente
+      targetPort: 3001  # Redirige al puerto interno 3001 del contenedor
+  type: ClusterIP
+---
+# Service para PostgreSQL
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: default
+spec:
+  selector:
+    app: postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP
+---
+# Service para el frontend
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: default
+spec:
+  selector:
+    app: frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
